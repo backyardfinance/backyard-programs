@@ -27,4 +27,8 @@ pub mod backyard_programs {
     ) -> Result<()> {
         create_lp::create_lp(ctx, token_id, decimals, name, symbol, uri)
     }
+
+    pub fn create_vault(ctx: Context<CreateVault>, vault_id: Pubkey) -> Result<()> {
+        create_vault::create_vault(ctx, vault_id)
+    }
 }

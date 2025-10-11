@@ -1,11 +1,9 @@
-use crate::Vault;
-use crate::{errors::ErrorCode, PROTOCOL_OWNER};
+use crate::{errors::ErrorCode, Vault, PROTOCOL_OWNER};
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{create_account, transfer, CreateAccount, Transfer};
 use anchor_spl::associated_token::spl_associated_token_account::solana_program::rent::{
     DEFAULT_EXEMPTION_THRESHOLD, DEFAULT_LAMPORTS_PER_BYTE_YEAR,
 };
-use anchor_spl::token_interface::TokenInterface;
 use anchor_spl::{
     token_2022::{
         initialize_mint2,
@@ -14,7 +12,7 @@ use anchor_spl::{
     },
     token_interface::{
         non_transferable_mint_initialize, token_metadata_initialize, NonTransferableMintInitialize,
-        TokenMetadataInitialize,
+        TokenInterface, TokenMetadataInitialize,
     },
 };
 use spl_token_metadata_interface::state::TokenMetadata;
