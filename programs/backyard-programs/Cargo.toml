@@ -9,22 +9,22 @@ crate-type = ["cdylib", "lib"]
 name = "backyard_programs"
 
 [features]
-default = []
+default = ["devnet"]
 cpi = ["no-entrypoint"]
 no-entrypoint = []
 no-idl = []
 no-log-ix-name = []
-idl-build = ["anchor-lang/idl-build"]
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
 anchor-debug = []
 custom-heap = []
 custom-panic = []
-
+mainnet = []
+devnet = []
+localnet = []
 
 [dependencies]
 anchor-lang = { version = "0.32.1", features = ["init-if-needed"] }
 anchor-spl = "0.32.1"
-spl-token-metadata-interface = "0.8.0"
-spl-type-length-value = "0.9.0"
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = [

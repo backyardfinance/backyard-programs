@@ -1,9 +1,6 @@
 use crate::{errors::ErrorCode, Vault, PROTOCOL_OWNER};
 use anchor_lang::prelude::*;
-use anchor_lang::system_program::{create_account, transfer, CreateAccount, Transfer};
-use anchor_spl::associated_token::spl_associated_token_account::solana_program::rent::{
-    DEFAULT_EXEMPTION_THRESHOLD, DEFAULT_LAMPORTS_PER_BYTE_YEAR,
-};
+use anchor_lang::system_program::{create_account, CreateAccount};
 use anchor_spl::{
     token_2022::{
         initialize_mint2,
@@ -11,12 +8,9 @@ use anchor_spl::{
         InitializeMint2,
     },
     token_interface::{
-        non_transferable_mint_initialize, token_metadata_initialize, NonTransferableMintInitialize,
-        TokenInterface, TokenMetadataInitialize,
+        non_transferable_mint_initialize, NonTransferableMintInitialize, TokenInterface,
     },
 };
-use spl_token_metadata_interface::state::TokenMetadata;
-use spl_type_length_value::variable_len_pack::VariableLenPack;
 
 #[derive(Accounts)]
 #[instruction(vault_id: Pubkey)]
@@ -41,14 +35,7 @@ pub struct CreateLP<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn create_lp(
-    ctx: Context<CreateLP>,
-    vault_id: Pubkey,
-    decimals: u8,
-    name: String,
-    symbol: String,
-    uri: String,
-) -> Result<()> {
+pub fn create_lp(ctx: Context<CreateLP>, vault_id: Pubkey, decimals: u8) -> Result<()> {
     let vault = ctx.accounts.vault.to_account_info().key();
 
     let mint_size =
@@ -87,47 +74,6 @@ pub fn create_lp(
         decimals,
         &vault,
         Some(&vault),
-    )?;
-
-    let token_metadata = TokenMetadata {
-        name: name.clone(),
-        symbol: symbol.clone(),
-        uri: uri.clone(),
-        ..Default::default()
-    };
-
-    let data_len = 4 + token_metadata
-        .get_packed_len()
-        .map_err(|_| anchor_lang::error::ErrorCode::AccountDidNotDeserialize)?;
-
-    let additional_lamports =
-        data_len as u64 * DEFAULT_LAMPORTS_PER_BYTE_YEAR * DEFAULT_EXEMPTION_THRESHOLD as u64;
-
-    transfer(
-        CpiContext::new(
-            ctx.accounts.system_program.to_account_info(),
-            Transfer {
-                from: ctx.accounts.protocol_owner.to_account_info(),
-                to: ctx.accounts.mint_account.to_account_info(),
-            },
-        ),
-        additional_lamports,
-    )?;
-
-    token_metadata_initialize(
-        CpiContext::new(
-            ctx.accounts.token_program_2022.to_account_info(),
-            TokenMetadataInitialize {
-                program_id: ctx.accounts.token_program_2022.to_account_info(),
-                mint: ctx.accounts.mint_account.to_account_info(),
-                metadata: ctx.accounts.mint_account.to_account_info(),
-                mint_authority: ctx.accounts.protocol_owner.to_account_info(),
-                update_authority: ctx.accounts.protocol_owner.to_account_info(),
-            },
-        ),
-        name,
-        symbol,
-        uri,
     )?;
 
     Ok(())
