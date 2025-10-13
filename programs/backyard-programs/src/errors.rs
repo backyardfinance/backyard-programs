@@ -6,4 +6,8 @@ pub enum ErrorCode {
     CustomError,
     #[msg("You are not the owner")]
     NotOwner,
+    #[msg("Invalid LP mint authority")]
+    InvalidLpMintAuthority,
+    #[msg("Invalid amount")]
+    InvalidAmount,
 }
