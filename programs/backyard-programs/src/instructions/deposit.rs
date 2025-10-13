@@ -9,29 +9,30 @@ use anchor_spl::{
 
 #[derive(Accounts)]
 #[instruction(vault_id: Pubkey)]
-pub struct DepositAndMintLP<'info> {
+pub struct Deposit<'info> {
     #[account(mut)]
-    pub user: Signer<'info>,
+    pub signer: Signer<'info>,
 
-    #[account(mint::token_program = token_program_2022)]
-    pub token: InterfaceAccount<'info, Mint>,
+    #[account(mint::token_program = token_program)]
+    pub input_token: InterfaceAccount<'info, Mint>,
 
     #[account(
         mut,
-        associated_token::mint = token,
-        associated_token::authority = user,
-        associated_token::token_program = token_program_2022,
+        associated_token::mint = input_token,
+        associated_token::authority = signer,
+        associated_token::token_program = token_program,
     )]
-    pub user_token_account: InterfaceAccount<'info, TokenAccount>,
+    pub signer_input_ata: InterfaceAccount<'info, TokenAccount>,
 
     #[account(
+        // TODO: This account must be initialized before calling this instruction.
       init_if_needed,
-      payer = user,
-      associated_token::mint = token,
+      payer = signer,
+      associated_token::mint = input_token,
       associated_token::authority = vault,
-      associated_token::token_program = token_program_2022,
+      associated_token::token_program = token_program,
     )]
-    pub vault_token_account: InterfaceAccount<'info, TokenAccount>,
+    pub vault_input_ata: InterfaceAccount<'info, TokenAccount>,
 
     #[account(
       mut,
@@ -39,16 +40,16 @@ pub struct DepositAndMintLP<'info> {
       mint::freeze_authority = vault,
       mint::token_program = token_program_2022,
     )]
-    pub lp_mint: InterfaceAccount<'info, Mint>,
+    pub lp_token: InterfaceAccount<'info, Mint>,
 
     #[account(
       init_if_needed,
-      payer = user,
-      associated_token::mint = lp_mint,
-      associated_token::authority = user,
+      payer = signer,
+      associated_token::mint = lp_token,
+      associated_token::authority = signer,
       associated_token::token_program = token_program_2022,
     )]
-    pub user_lp_token_account: InterfaceAccount<'info, TokenAccount>,
+    pub signer_lp_ata: InterfaceAccount<'info, TokenAccount>,
 
     #[account(
         mut,
@@ -58,39 +59,36 @@ pub struct DepositAndMintLP<'info> {
     pub vault: Account<'info, Vault>,
 
     pub associated_token_program: Program<'info, AssociatedToken>,
+    pub token_program: Interface<'info, TokenInterface>,
     pub token_program_2022: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
-pub fn deposit_and_mint_lp(
-    ctx: Context<DepositAndMintLP>,
-    vault_id: Pubkey,
-    amount: u64,
-) -> Result<()> {
+pub fn deposit(ctx: Context<Deposit>, vault_id: Pubkey, amount: u64) -> Result<()> {
     let vault_seeds: &[&[u8]] = &[b"vault", vault_id.as_ref(), &[ctx.accounts.vault.bump]];
 
     require!(amount > 0, ErrorCode::InvalidAmount);
 
     transfer_checked(
         CpiContext::new(
-            ctx.accounts.token_program_2022.to_account_info(),
+            ctx.accounts.token_program.to_account_info(),
             TransferChecked {
-                from: ctx.accounts.user_token_account.to_account_info(),
-                mint: ctx.accounts.token.to_account_info(),
-                to: ctx.accounts.vault_token_account.to_account_info(),
-                authority: ctx.accounts.user.to_account_info(),
+                from: ctx.accounts.signer_input_ata.to_account_info(),
+                mint: ctx.accounts.input_token.to_account_info(),
+                to: ctx.accounts.vault_input_ata.to_account_info(),
+                authority: ctx.accounts.signer.to_account_info(),
             },
         ),
         amount,
-        ctx.accounts.token.decimals,
+        ctx.accounts.input_token.decimals,
     )?;
 
     mint_to(
         CpiContext::new_with_signer(
             ctx.accounts.token_program_2022.to_account_info(),
             MintTo {
-                mint: ctx.accounts.lp_mint.to_account_info(),
-                to: ctx.accounts.user_lp_token_account.to_account_info(),
+                mint: ctx.accounts.lp_token.to_account_info(),
+                to: ctx.accounts.signer_lp_ata.to_account_info(),
                 authority: ctx.accounts.vault.to_account_info(),
             },
             &[vault_seeds],

@@ -1,4 +1,5 @@
-use crate::{errors::ErrorCode, Vault, PROTOCOL_OWNER};
+use crate::MASTER_WALLET;
+use crate::{errors::ErrorCode, Vault};
 use anchor_lang::prelude::*;
 use anchor_lang::system_program::{create_account, CreateAccount};
 use anchor_spl::{
@@ -17,9 +18,9 @@ use anchor_spl::{
 pub struct CreateLP<'info> {
     #[account(
         mut,
-        address = PROTOCOL_OWNER @ ErrorCode::NotOwner
+        address = MASTER_WALLET @ ErrorCode::NotOwner
     )]
-    pub protocol_owner: Signer<'info>,
+    pub master: Signer<'info>,
 
     #[account(
         mut,
@@ -47,7 +48,7 @@ pub fn create_lp(ctx: Context<CreateLP>, vault_id: Pubkey, decimals: u8) -> Resu
         CpiContext::new(
             ctx.accounts.system_program.to_account_info(),
             CreateAccount {
-                from: ctx.accounts.protocol_owner.to_account_info(),
+                from: ctx.accounts.master.to_account_info(),
                 to: ctx.accounts.mint_account.to_account_info(),
             },
         ),

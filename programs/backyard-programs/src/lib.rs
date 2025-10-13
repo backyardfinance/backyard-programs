@@ -23,19 +23,11 @@ pub mod backyard_programs {
         create_vault::create_vault(ctx, vault_id)
     }
 
-    pub fn deposit_and_mint_lp(
-        ctx: Context<DepositAndMintLP>,
-        vault_id: Pubkey,
-        amount: u64,
-    ) -> Result<()> {
-        deposit::deposit_and_mint_lp(ctx, vault_id, amount)
+    pub fn deposit(ctx: Context<Deposit>, vault_id: Pubkey, amount: u64) -> Result<()> {
+        deposit::deposit(ctx, vault_id, amount)
     }
 
-    pub fn burn_lp_and_withdraw(
-        ctx: Context<BurnLpAndWithdraw>,
-        vault_id: Pubkey,
-        amount: u64,
-    ) -> Result<()> {
-        withdraw::burn_lp_and_withdraw(ctx, vault_id, amount)
+    pub fn withdraw(ctx: Context<Withdraw>, vault_id: Pubkey, amount: u64) -> Result<()> {
+        withdraw::withdraw(ctx, vault_id, amount)
     }
 }

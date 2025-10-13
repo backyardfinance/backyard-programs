@@ -11,6 +11,7 @@ import {
   getAssociatedTokenAddressSync,
   mintTo,
   TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
   unpackMint,
 } from "@solana/spl-token";
 import { airdropIfRequired } from "@solana-developers/helpers";
@@ -23,7 +24,7 @@ describe("backyard-programs", () => {
   const provider = anchor.AnchorProvider.env();
   anchor.setProvider(provider);
   const connection = provider.connection;
-  const secret = JSON.parse(process.env.PROTOCOL_OWNER_KEY!);
+  const secret = JSON.parse(process.env.MASTER_WALLET_PRIVATE_KEY!);
   const protocolOwner = Keypair.fromSecretKey(Uint8Array.from(secret));
   const program = anchor.workspace.BackyardPrograms as Program<BackyardPrograms>;
   const vaultId = Keypair.generate().publicKey;
@@ -88,7 +89,6 @@ describe("backyard-programs", () => {
   });
 
   it("deposit to vault", async () => {
-
     await airdropIfRequired(
       connection,
       user.publicKey,
@@ -103,7 +103,7 @@ describe("backyard-programs", () => {
       6,
       Keypair.generate(),
       null,
-      TOKEN_2022_PROGRAM_ID
+      TOKEN_PROGRAM_ID
     );
     tokenMint = mint;
 
@@ -113,7 +113,7 @@ describe("backyard-programs", () => {
       tokenMint,
       user.publicKey,
       null,
-      TOKEN_2022_PROGRAM_ID
+      TOKEN_PROGRAM_ID
     );
     const amount = new anchor.BN(100_000_000);
 
@@ -126,16 +126,17 @@ describe("backyard-programs", () => {
       amount.toNumber(),
       [],
       null,
-      TOKEN_2022_PROGRAM_ID
+      TOKEN_PROGRAM_ID
     );
 
     const tx = await program.methods
-      .depositAndMintLp(vaultId, amount)
+      .deposit(vaultId, amount)
       .accounts({
-        user: user.publicKey,
-        token: tokenMint,
+        signer: user.publicKey,
+        inputToken: tokenMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
         tokenProgram2022: TOKEN_2022_PROGRAM_ID,
-        lpMint: lpMint,
+        lpToken: lpMint,
       })
       .signers([user])
       .rpc();
@@ -146,7 +147,7 @@ describe("backyard-programs", () => {
       tokenMint,
       vaultPda,
       true,
-      TOKEN_2022_PROGRAM_ID
+      TOKEN_PROGRAM_ID
     );
 
     const tokenBalance = await connection.getTokenAccountBalance(vaultTokenAccount);
@@ -167,11 +168,12 @@ describe("backyard-programs", () => {
     const amount = new anchor.BN(100_000_000);
 
     const txBurn = await program.methods
-      .burnLpAndWithdraw(vaultId, amount)
+      .withdraw(vaultId, amount)
       .accounts({
-        user: user.publicKey,
-        token: tokenMint,
-        lpMint: lpMint,
+        signer: user.publicKey,
+        outputToken: tokenMint,
+        lpToken: lpMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
         tokenProgram2022: TOKEN_2022_PROGRAM_ID,
       })
       .signers([user])
@@ -193,7 +195,7 @@ describe("backyard-programs", () => {
       tokenMint,
       user.publicKey,
       true,
-      TOKEN_2022_PROGRAM_ID
+      TOKEN_PROGRAM_ID
     );
 
     const userBalanceAfter = await connection.getTokenAccountBalance(userTokenAccount);

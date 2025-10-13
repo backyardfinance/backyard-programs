@@ -1,4 +1,4 @@
-use crate::{errors::ErrorCode, Vault, PROTOCOL_OWNER};
+use crate::{errors::ErrorCode, Vault, MASTER_WALLET};
 use anchor_lang::prelude::*;
 
 #[derive(Accounts)]
@@ -6,13 +6,13 @@ use anchor_lang::prelude::*;
 pub struct CreateVault<'info> {
     #[account(
         mut,
-        address = PROTOCOL_OWNER @ ErrorCode::NotOwner
+        address = MASTER_WALLET @ ErrorCode::NotOwner
     )]
-    pub protocol_owner: Signer<'info>,
+    pub master: Signer<'info>,
 
     #[account(
         init,
-        payer = protocol_owner,
+        payer = master,
         space = 8 + Vault::INIT_SPACE,
         seeds = [b"vault", vault_id.as_ref()],
         bump,
