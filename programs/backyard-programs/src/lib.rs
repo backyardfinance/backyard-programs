@@ -15,10 +15,6 @@ declare_id!("45No8jKDaf6VUjD42rBYpVkbYGHJHjmLw86kh5tDFRDm");
 pub mod backyard_programs {
     use super::*;
 
-    pub fn create_lp(ctx: Context<CreateLP>, vault_id: Pubkey, decimals: u8) -> Result<()> {
-        create_lp::create_lp(ctx, vault_id, decimals)
-    }
-
     pub fn create_vault(ctx: Context<CreateVault>, vault_id: Pubkey) -> Result<()> {
         create_vault::create_vault(ctx, vault_id)
     }

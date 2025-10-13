@@ -25,9 +25,7 @@ pub struct Deposit<'info> {
     pub signer_input_ata: InterfaceAccount<'info, TokenAccount>,
 
     #[account(
-        // TODO: This account must be initialized before calling this instruction.
-      init_if_needed,
-      payer = signer,
+      mut,
       associated_token::mint = input_token,
       associated_token::authority = vault,
       associated_token::token_program = token_program,

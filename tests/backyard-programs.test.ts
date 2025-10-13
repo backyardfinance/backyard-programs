@@ -4,11 +4,19 @@ import {
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
+  sendAndConfirmTransaction,
+  SystemProgram,
+  Transaction,
 } from "@solana/web3.js";
 import {
   createAssociatedTokenAccount,
+  createInitializeMint2Instruction,
+  createInitializeNonTransferableMintInstruction,
   createMint,
+  ExtensionType,
   getAssociatedTokenAddressSync,
+  getExtensionTypes,
+  getMintLen,
   mintTo,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -17,6 +25,7 @@ import {
 import { airdropIfRequired } from "@solana-developers/helpers";
 import { BackyardPrograms } from "../target/types/backyard_programs";
 import dotenv from 'dotenv';
+import { ASSOCIATED_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/utils/token";
 
 dotenv.config();
 
@@ -47,45 +56,59 @@ describe("backyard-programs", () => {
     )[0];
   });
 
-  it("creates a new vault PDA", async () => {
+  it("creates a new vault PDA and lp token", async () => {
     const tx = await program.methods
       .createVault(vaultId)
       .accounts({})
       .signers([protocolOwner])
       .rpc();
 
-
     expect(tx).not.toBeNull();
 
     const vaultAccount = await program.account.vault.fetch(vaultPda);
 
     expect(vaultAccount.vaultId.toBase58()).toEqual(vaultId.toBase58());
-  });
 
-  it("creates a new LP mint for the vault", async () => {
-    const mintAccount = Keypair.generate();
-    const decimals = 6;
-    lpMint = mintAccount.publicKey;
+    const lpTokenKeypair = Keypair.generate();
 
-    const tx = await program.methods
-      .createLp(vaultId, decimals)
-      .accounts({
-        mintAccount: mintAccount.publicKey,
-        tokenProgram2022: TOKEN_2022_PROGRAM_ID,
-      })
-      .signers([protocolOwner, mintAccount])
-      .rpc();
+    const extensions = [ExtensionType.NonTransferable];
+    const mintLen = getMintLen(extensions);
+    const lamports = await connection.getMinimumBalanceForRentExemption(mintLen);
 
-    expect(tx).not.toBeNull();
+    const createAccountIx = SystemProgram.createAccount({
+      fromPubkey: protocolOwner.publicKey,
+      newAccountPubkey: lpTokenKeypair.publicKey,
+      space: mintLen,
+      lamports,
+      programId: TOKEN_2022_PROGRAM_ID,
+    });
 
-    const mintInfo = await connection.getAccountInfo(mintAccount.publicKey);
-    expect(mintInfo).not.toBeNull();
+    const initializeNonTransferableIx = createInitializeNonTransferableMintInstruction(
+      lpTokenKeypair.publicKey,
+      TOKEN_2022_PROGRAM_ID
+    );
 
-    const mint = unpackMint(mintAccount.publicKey, mintInfo!, TOKEN_2022_PROGRAM_ID);
+    const initializeMintIx = createInitializeMint2Instruction(
+      lpTokenKeypair.publicKey,
+      6,
+      vaultPda,
+      vaultPda,
+      TOKEN_2022_PROGRAM_ID
+    );
 
-    expect(mint.decimals).toBe(decimals);
-    expect(mint.mintAuthority?.toBase58()).toBe(vaultPda.toBase58());
-    expect(mint.freezeAuthority?.toBase58()).toBe(vaultPda.toBase58());
+    const setupTx = new Transaction().add(
+      createAccountIx,
+      initializeNonTransferableIx,
+      initializeMintIx
+    );
+
+    await sendAndConfirmTransaction(
+      connection,
+      setupTx,
+      [protocolOwner, lpTokenKeypair]
+    );
+
+    lpMint = lpTokenKeypair.publicKey;
   });
 
   it("deposit to vault", async () => {
@@ -127,6 +150,17 @@ describe("backyard-programs", () => {
       [],
       null,
       TOKEN_PROGRAM_ID
+    );
+
+    await createAssociatedTokenAccount(
+      connection,
+      protocolOwner,
+      tokenMint,
+      vaultPda,
+      null,
+      TOKEN_PROGRAM_ID,
+      ASSOCIATED_PROGRAM_ID,
+      true,
     );
 
     const tx = await program.methods
@@ -184,7 +218,7 @@ describe("backyard-programs", () => {
     const userLpAccount = getAssociatedTokenAddressSync(
       lpMint,
       user.publicKey,
-      true,
+      false,
       TOKEN_2022_PROGRAM_ID
     );
 
