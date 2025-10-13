@@ -6,13 +6,19 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-backyard_programs = "45No8jKDaf6VUjD42rBYpVkbYGHJHjmLw86kh5tDFRDm"
+backyard_programs = "9J4gV4TL8EifN1PJGtysh1wp4wgzYoprZ4mYo8kS2PSv"
+
+[programs.devnet]
+backyard_programs = "9J4gV4TL8EifN1PJGtysh1wp4wgzYoprZ4mYo8kS2PSv"
+
+[programs.mainnet]
+backyard_programs = "9J4gV4TL8EifN1PJGtysh1wp4wgzYoprZ4mYo8kS2PSv"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
