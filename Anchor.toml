@@ -10,15 +10,17 @@ backyard_programs = "9J4gV4TL8EifN1PJGtysh1wp4wgzYoprZ4mYo8kS2PSv"
 
 [programs.devnet]
 backyard_programs = "9J4gV4TL8EifN1PJGtysh1wp4wgzYoprZ4mYo8kS2PSv"
+lending = "7tjE28izRUjzmxC1QNXnNwcc4N82CNYCexf3k8mw67s3"
 
 [programs.mainnet]
 backyard_programs = "9J4gV4TL8EifN1PJGtysh1wp4wgzYoprZ4mYo8kS2PSv"
+lending = "jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]

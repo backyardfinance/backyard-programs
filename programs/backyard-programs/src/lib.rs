@@ -9,6 +9,8 @@ pub use constants::*;
 pub use instructions::*;
 pub use state::*;
 
+declare_program!(lending_dev);
+
 declare_id!("9J4gV4TL8EifN1PJGtysh1wp4wgzYoprZ4mYo8kS2PSv");
 
 #[program]
