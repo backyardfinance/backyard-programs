@@ -6,6 +6,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
+    "@jup-ag/lend": "^0.0.101",
     "@solana-developers/helpers": "^2.8.1"
   },
   "devDependencies": {
