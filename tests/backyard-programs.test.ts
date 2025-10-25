@@ -1,6 +1,7 @@
 import * as anchor from "@coral-xyz/anchor";
 import { Program } from "@coral-xyz/anchor";
 import {
+  ComputeBudgetProgram,
   Keypair,
   LAMPORTS_PER_SOL,
   PublicKey,
@@ -10,10 +11,12 @@ import {
 } from "@solana/web3.js";
 import {
   createAssociatedTokenAccount,
+  createAssociatedTokenAccountIdempotent,
   createInitializeMint2Instruction,
   createInitializeNonTransferableMintInstruction,
   createMint,
   ExtensionType,
+  getAccount,
   getAssociatedTokenAddressSync,
   getMintLen,
   mintTo,
@@ -23,12 +26,14 @@ import {
 import { airdropIfRequired } from "@solana-developers/helpers";
 import { BackyardPrograms } from "../target/types/backyard_programs";
 import dotenv from 'dotenv';
-import { ASSOCIATED_PROGRAM_ID } from "@coral-xyz/anchor/dist/cjs/utils/token";
+import { utils } from "@coral-xyz/anchor";
 import {
+  getDepositContext,
   getWithdrawContext,
   getLendingTokens,
-  getDepositContext
-} from "@jup-ag/lend/dist/earn";
+  getLendingTokenDetails,
+} from "@jup-ag/lend/earn";
+import { describe, it, expect, beforeAll } from 'vitest';
 
 dotenv.config();
 
@@ -40,11 +45,11 @@ describe("backyard-programs", () => {
   const protocolOwner = Keypair.fromSecretKey(Uint8Array.from(secret));
   const program = anchor.workspace.BackyardPrograms as Program<BackyardPrograms>;
   const vaultId = Keypair.generate().publicKey;
-  const user = Keypair.generate();
-  const usdc = new anchor.web3.PublicKey("9BEcn9aPEmhSPbPQeFGjidRiEKki46fVQDyPpSQXPA2D");
+  const secretUser = JSON.parse(process.env.USER_PRIVATE_KEY!);
+  const user = Keypair.fromSecretKey(Uint8Array.from(secretUser));
+  const usdc = new anchor.web3.PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
   let vaultPda: PublicKey;
   let lpMint: PublicKey;
-  let tokenMint: PublicKey;
 
   beforeAll(async () => {
     await airdropIfRequired(
@@ -132,40 +137,8 @@ describe("backyard-programs", () => {
       null,
       TOKEN_PROGRAM_ID
     );
-    tokenMint = mint;
 
-    const userTokenAccount = await createAssociatedTokenAccount(
-      connection,
-      user,
-      tokenMint,
-      user.publicKey,
-      null,
-      TOKEN_PROGRAM_ID
-    );
     const amount = new anchor.BN(100_000_000);
-
-    await mintTo(
-      connection,
-      user,
-      tokenMint,
-      userTokenAccount,
-      user.publicKey,
-      amount.toNumber(),
-      [],
-      null,
-      TOKEN_PROGRAM_ID
-    );
-
-    await createAssociatedTokenAccount(
-      connection,
-      protocolOwner,
-      tokenMint,
-      vaultPda,
-      null,
-      TOKEN_PROGRAM_ID,
-      ASSOCIATED_PROGRAM_ID,
-      true,
-    );
 
     const allTokens = await getLendingTokens({ connection });
 
@@ -177,27 +150,30 @@ describe("backyard-programs", () => {
       connection,
     });
 
-    console.log({ depositContext });
+    const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
+      units: 600_000,
+    });
 
     const tx = await program.methods
       .deposit(vaultId, amount)
       .accounts({
         signer: user.publicKey,
-        inputToken: tokenMint,
+        inputToken: usdc,
         tokenProgram: TOKEN_PROGRAM_ID,
         tokenProgram2022: TOKEN_2022_PROGRAM_ID,
         lpToken: lpMint,
         fTokenMint: depositContext.fTokenMint,
         jupiterVault: depositContext.vault,
         lending: depositContext.lending,
-        lendingAdmin: depositContext.lending,
+        lendingAdmin: depositContext.lendingAdmin,
+        rewardsRateModel: depositContext.rewardsRateModel,
         lendingSupplyPositionOnLiquidity: depositContext.lendingSupplyPositionOnLiquidity,
         liquidity: depositContext.liquidity,
         liquidityProgram: depositContext.liquidityProgram,
         rateModel: depositContext.rateModel,
-        rewardsRateModel: depositContext.rewardsRateModel,
         supplyTokenReservesLiquidity: depositContext.supplyTokenReservesLiquidity,
       })
+      .preInstructions([computeBudgetIx])
       .signers([user])
       .rpc();
 
@@ -233,26 +209,48 @@ describe("backyard-programs", () => {
     );
 
     const userLpBalance = await connection.getTokenAccountBalance(userLpAccount);
-    const amount = new anchor.BN(userLpBalance.value.amount);
+    console.log("userLpBalance: ", userLpBalance.value.uiAmount);
+    const amount = new anchor.BN(50_000_000);
+
+    const userOutputAccount = getAssociatedTokenAddressSync(
+      usdc,
+      user.publicKey,
+      false,
+      TOKEN_PROGRAM_ID
+    );
+    const userOutputBalanceBefore = await connection.getTokenAccountBalance(userOutputAccount);
+    console.log("userOutputBalanceBefore: ", userOutputBalanceBefore.value.uiAmount);
 
     const withdrawContext = await getWithdrawContext({
       asset: usdc,
       signer: user.publicKey,
       connection,
     });
+    const vaultLpAccount = getAssociatedTokenAddressSync(
+      withdrawContext.fTokenMint,
+      vaultPda,
+      true,
+      TOKEN_PROGRAM_ID
+    );
+    const vaultLpBalanceBefore = await connection.getTokenAccountBalance(vaultLpAccount);
+    console.log("vaultLpBalanceBefore: ", vaultLpBalanceBefore.value.uiAmount);
+
+    const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
+      units: 600_000,
+    });
 
     const txBurn = await program.methods
       .withdraw(vaultId, amount)
       .accounts({
         signer: user.publicKey,
-        outputToken: tokenMint,
+        outputToken: usdc,
         lpToken: lpMint,
         tokenProgram: TOKEN_PROGRAM_ID,
         tokenProgram2022: TOKEN_2022_PROGRAM_ID,
         fTokenMint: withdrawContext.fTokenMint,
         jupiterVault: withdrawContext.vault,
         lending: withdrawContext.lending,
-        lendingAdmin: withdrawContext.lending,
+        lendingAdmin: withdrawContext.lendingAdmin,
         lendingSupplyPositionOnLiquidity: withdrawContext.lendingSupplyPositionOnLiquidity,
         liquidity: withdrawContext.liquidity,
         liquidityProgram: withdrawContext.liquidityProgram,
@@ -261,22 +259,23 @@ describe("backyard-programs", () => {
         supplyTokenReservesLiquidity: withdrawContext.supplyTokenReservesLiquidity,
         claimAccount: withdrawContext.claimAccount
       })
+      .preInstructions([computeBudgetIx])
       .signers([user])
       .rpc();
 
     expect(txBurn).not.toBeNull();
 
-    expect(userLpBalance.value.amount).toEqual("0");
+    const userLpBalanceAfter = await connection.getTokenAccountBalance(userLpAccount);
+    console.log("userLpBalanceAfter: ", userLpBalanceAfter.value.uiAmount);
+    const userOutputBalanceAfter = await connection.getTokenAccountBalance(userOutputAccount);
+    console.log("userOutputBalanceAfter: ", userOutputBalanceAfter.value.uiAmount);
+    const vaultLpBalanceAfter = await connection.getTokenAccountBalance(vaultLpAccount);
+    console.log("vaultLpBalanceAfter: ", vaultLpBalanceAfter.value.uiAmount);
 
-    const vaultLpAccount = getAssociatedTokenAddressSync(
-      tokenMint,
-      vaultPda,
-      true,
-      TOKEN_PROGRAM_ID
-    );
+    const before = Number(userOutputBalanceBefore.value.amount);
+    const after = Number(userOutputBalanceAfter.value.amount);
 
-    const vaultLpBalance = await connection.getTokenAccountBalance(vaultLpAccount);
-    expect(vaultLpBalance.value.amount).toEqual("0");
+    expect(after).toBeGreaterThan(before);
   });
 
 });
