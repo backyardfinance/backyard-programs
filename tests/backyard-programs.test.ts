@@ -19,6 +19,7 @@ import {
   getAccount,
   getAssociatedTokenAddressSync,
   getMintLen,
+  getOrCreateAssociatedTokenAccount,
   mintTo,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
@@ -135,16 +136,6 @@ describe("backyard-programs", () => {
       2 * LAMPORTS_PER_SOL,
       1 * LAMPORTS_PER_SOL
     );
-    const mint = await createMint(
-      connection,
-      user,
-      user.publicKey,
-      null,
-      6,
-      Keypair.generate(),
-      null,
-      TOKEN_PROGRAM_ID
-    );
 
     const amount = new anchor.BN(100_000_000);
 
@@ -157,6 +148,27 @@ describe("backyard-programs", () => {
       signer: user.publicKey,
       connection,
     });
+
+    await getOrCreateAssociatedTokenAccount(
+      connection,
+      user,
+      usdc,
+      vaultPda,
+      true,
+      undefined,
+      undefined,
+      TOKEN_PROGRAM_ID
+    );
+    await getOrCreateAssociatedTokenAccount(
+      connection,
+      user,
+      depositContext.fTokenMint,
+      vaultPda,
+      true,
+      undefined,
+      undefined,
+      TOKEN_PROGRAM_ID
+    );
 
     const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
       units: 600_000,
