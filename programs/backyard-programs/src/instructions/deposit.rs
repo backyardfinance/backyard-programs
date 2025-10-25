@@ -16,7 +16,7 @@ use anchor_spl::{
 };
 
 #[derive(Accounts)]
-#[instruction(vault_id: Pubkey)]
+#[instruction(protocol_index: u8, vault_id: Pubkey)]
 pub struct Deposit<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
@@ -71,7 +71,7 @@ pub struct Deposit<'info> {
 
     #[account(
         mut,
-        seeds = [b"vault", vault_id.as_ref()],
+        seeds = [b"vault", protocol_index.to_le_bytes().as_ref(), vault_id.as_ref()],
         bump = vault.bump,
     )]
     pub vault: Box<Account<'info, Vault>>,
@@ -108,8 +108,18 @@ pub struct Deposit<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn deposit(ctx: Context<Deposit>, vault_id: Pubkey, amount: u64) -> Result<()> {
-    let vault_seeds: &[&[u8]] = &[b"vault", vault_id.as_ref(), &[ctx.accounts.vault.bump]];
+pub fn deposit(
+    ctx: Context<Deposit>,
+    protocol_index: u8,
+    vault_id: Pubkey,
+    amount: u64,
+) -> Result<()> {
+    let vault_seeds: &[&[u8]] = &[
+        b"vault",
+        &protocol_index.to_le_bytes(),
+        vault_id.as_ref(),
+        &[ctx.accounts.vault.bump],
+    ];
 
     require!(amount > 0, ErrorCode::InvalidAmount);
 
