@@ -9,9 +9,9 @@ pub use constants::*;
 pub use instructions::*;
 pub use state::*;
 
-declare_program!(lending);
+declare_program!(lending_dev);
 
-declare_id!("3k8rpr9YHhgGyfNXouz2uhtsV4teHkeoaV8fJcPTAWnU");
+declare_id!("CUuCLr2DXer9TKTgW6bqJRxQEu4JEvfGV6DcTsoE2E96");
 
 #[program]
 pub mod backyard_programs {

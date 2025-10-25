@@ -6,23 +6,23 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-backyard_programs = "9J4gV4TL8EifN1PJGtysh1wp4wgzYoprZ4mYo8kS2PSv"
+backyard_programs = "CUuCLr2DXer9TKTgW6bqJRxQEu4JEvfGV6DcTsoE2E96"
 lending = "jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9"
 
 [programs.devnet]
-backyard_programs = "9J4gV4TL8EifN1PJGtysh1wp4wgzYoprZ4mYo8kS2PSv"
+backyard_programs = "CUuCLr2DXer9TKTgW6bqJRxQEu4JEvfGV6DcTsoE2E96"
 lending = "7tjE28izRUjzmxC1QNXnNwcc4N82CNYCexf3k8mw67s3"
 
 [programs.mainnet]
-backyard_programs = "9J4gV4TL8EifN1PJGtysh1wp4wgzYoprZ4mYo8kS2PSv"
+backyard_programs = "CUuCLr2DXer9TKTgW6bqJRxQEu4JEvfGV6DcTsoE2E96"
 lending = "jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "localnet"
-wallet = "~/.config/solana/id.json"
+cluster = "devnet"
+wallet = "~/.config/solana/backyard-id.json"
 
 [scripts]
 test = "yarn run vitest run"

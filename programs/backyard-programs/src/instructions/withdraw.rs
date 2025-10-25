@@ -1,6 +1,6 @@
 use crate::{
     errors::ErrorCode,
-    lending::{
+    lending_dev::{
         accounts::{Lending, LendingAdmin},
         cpi::{accounts::Withdraw as JupiterWithdraw, withdraw as jupiter_withdraw},
         program::Lending as LendingProgram,
