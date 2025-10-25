@@ -10,17 +10,12 @@ import {
   Transaction,
 } from "@solana/web3.js";
 import {
-  createAssociatedTokenAccount,
-  createAssociatedTokenAccountIdempotent,
   createInitializeMint2Instruction,
   createInitializeNonTransferableMintInstruction,
-  createMint,
   ExtensionType,
-  getAccount,
   getAssociatedTokenAddressSync,
   getMintLen,
   getOrCreateAssociatedTokenAccount,
-  mintTo,
   TOKEN_2022_PROGRAM_ID,
   TOKEN_PROGRAM_ID,
 } from "@solana/spl-token";
@@ -33,7 +28,6 @@ import {
   getDepositContext,
   getWithdrawContext,
   getLendingTokens,
-  getLendingTokenDetails,
 } from "@jup-ag/lend/earn";
 import { describe, it, expect, beforeAll } from 'vitest';
 
@@ -53,8 +47,6 @@ describe("backyard-programs", () => {
   const user = Keypair.fromSecretKey(Uint8Array.from(secretUser));
   const usdc = new anchor.web3.PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
-  const protocolIndex = 1;
-
   let vaultPda: PublicKey;
   let lpMint: PublicKey;
 
@@ -67,14 +59,14 @@ describe("backyard-programs", () => {
     );
 
     vaultPda = PublicKey.findProgramAddressSync(
-      [Buffer.from("vault"), Buffer.from([protocolIndex]), vaultId.toBuffer()],
+      [Buffer.from("vault"), vaultId.toBuffer()],
       program.programId
     )[0];
   });
 
   it("creates a new vault PDA and lp token", async () => {
     const tx = await program.methods
-      .createVault(protocolIndex, vaultId)
+      .createVault(vaultId)
       .accounts({})
       .signers([protocolOwner])
       .rpc();
@@ -175,7 +167,7 @@ describe("backyard-programs", () => {
     });
 
     const tx = await program.methods
-      .deposit(protocolIndex, vaultId, amount)
+      .deposit(vaultId, amount)
       .accounts({
         signer: user.publicKey,
         inputToken: usdc,
@@ -260,7 +252,7 @@ describe("backyard-programs", () => {
     });
 
     const txBurn = await program.methods
-      .withdraw(protocolIndex, vaultId, amount)
+      .withdraw(vaultId, amount)
       .accounts({
         signer: user.publicKey,
         outputToken: usdc,
