@@ -32,22 +32,16 @@ pub struct Deposit<'info> {
     )]
     pub signer_input_ata: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    // These ATA is expected to be pre-initialized by backend service.
-    // `mut` is required to allow read/write access within this instruction.
     #[account(
-      init_if_needed,
-      payer = signer,
+      mut,
       associated_token::mint = input_token,
       associated_token::authority = vault,
       associated_token::token_program = token_program,
     )]
     pub vault_input_ata: Box<InterfaceAccount<'info, TokenAccount>>,
 
-    // These ATA is expected to be pre-initialized by backend service.
-    // `mut` is required to allow read/write access within this instruction.
     #[account(
-      init_if_needed,
-      payer = signer,
+      mut,
       associated_token::mint = f_token_mint,
       associated_token::authority = vault,
       associated_token::token_program = token_program,

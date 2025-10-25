@@ -9,6 +9,7 @@ pub struct CreateVault<'info> {
         address = MASTER_WALLET @ ErrorCode::NotOwner
     )]
     pub master: Signer<'info>,
+
     #[account(
         init,
         payer = master,
@@ -17,6 +18,7 @@ pub struct CreateVault<'info> {
         bump,
     )]
     pub vault: Account<'info, Vault>,
+
     pub system_program: Program<'info, System>,
 }
 
