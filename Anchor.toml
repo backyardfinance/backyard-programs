@@ -21,7 +21,7 @@ lending = "jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9"
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
+cluster = "localnet"
 wallet = "~/.config/solana/backyard-id.json"
 
 [scripts]
