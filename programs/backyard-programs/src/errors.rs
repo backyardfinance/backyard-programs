@@ -10,4 +10,6 @@ pub enum ErrorCode {
     InvalidLpMintAuthority,
     #[msg("Invalid amount")]
     InvalidAmount,
+    #[msg("Wrong token")]
+    WrongToken,
 }

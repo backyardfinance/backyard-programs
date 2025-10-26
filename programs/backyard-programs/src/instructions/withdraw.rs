@@ -1,6 +1,6 @@
 use crate::{
     errors::ErrorCode,
-    lending_dev::{
+    lending::{
         accounts::{Lending, LendingAdmin},
         cpi::{accounts::Withdraw as JupiterWithdraw, withdraw as jupiter_withdraw},
         program::Lending as LendingProgram,
@@ -22,7 +22,10 @@ pub struct Withdraw<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
-    #[account(mint::token_program = token_program)]
+    #[account(
+        mint::token_program = token_program,
+        address = vault.token @ ErrorCode::WrongToken
+    )]
     pub output_token: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(

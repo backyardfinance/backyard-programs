@@ -1,6 +1,6 @@
 use crate::{
     errors::ErrorCode,
-    lending_dev::{
+    lending::{
         accounts::{Lending, LendingAdmin},
         cpi::{accounts::Deposit as JupiterDeposit, deposit as jupiter_deposit},
         program::Lending as LendingProgram,
@@ -21,7 +21,10 @@ pub struct Deposit<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
-    #[account(mint::token_program = token_program)]
+    #[account(
+        mint::token_program = token_program,
+        address = vault.token @ ErrorCode::WrongToken
+    )]
     pub input_token: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(
