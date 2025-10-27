@@ -6,20 +6,20 @@ resolution = true
 skip-lint = false
 
 [programs.localnet]
-backyard_programs = "9J4gV4TL8EifN1PJGtysh1wp4wgzYoprZ4mYo8kS2PSv"
+backyard_programs = "EyQQodCfDanyQooK9D1ixJsEUPDmN7H8fghBJ4bGM1d8"
 
 [programs.devnet]
-backyard_programs = "9J4gV4TL8EifN1PJGtysh1wp4wgzYoprZ4mYo8kS2PSv"
+backyard_programs = "EyQQodCfDanyQooK9D1ixJsEUPDmN7H8fghBJ4bGM1d8"
 
 [programs.mainnet]
-backyard_programs = "9J4gV4TL8EifN1PJGtysh1wp4wgzYoprZ4mYo8kS2PSv"
+backyard_programs = "EyQQodCfDanyQooK9D1ixJsEUPDmN7H8fghBJ4bGM1d8"
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
 cluster = "devnet"
-wallet = "~/.config/solana/id.json"
+wallet = "~/.config/solana/backyard-id.json"
 
 [scripts]
 test = "yarn run jest --preset ts-jest"
