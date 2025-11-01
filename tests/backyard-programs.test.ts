@@ -30,6 +30,7 @@ import {
   getLendingTokens,
 } from "@jup-ag/lend/earn";
 import { describe, it, expect, beforeAll } from 'vitest';
+import { getKaminoDepositContext } from "./helpers/kamino-helpers";
 
 dotenv.config();
 
@@ -67,7 +68,10 @@ describe("backyard-programs", () => {
   it("creates a new vault PDA and lp token", async () => {
     const tx = await program.methods
       .createVault(vaultId)
-      .accounts({})
+      .accounts({
+        token: usdc,
+        tokenProgram: TOKEN_PROGRAM_ID
+      })
       .signers([protocolOwner])
       .rpc();
 
@@ -288,5 +292,77 @@ describe("backyard-programs", () => {
     const after = Number(userOutputBalanceAfter.value.amount);
 
     expect(after).toBeGreaterThan(before);
+  });
+
+  it("deposit USDC to Kamino vault", async () => {
+
+    const amount = new anchor.BN(100000000);
+
+    const depositContext = await getKaminoDepositContext({
+      connection,
+      asset: usdc,
+      signer: user.publicKey,
+    });
+
+    const userUsdcAccount = getAssociatedTokenAddressSync(
+      usdc,
+      user.publicKey,
+      false,
+      TOKEN_PROGRAM_ID
+    );
+
+    const userInputBalanceBefore = await connection.getTokenAccountBalance(userUsdcAccount);
+    console.log("userInputBalanceBefore: ", userInputBalanceBefore.value.uiAmount);
+
+    await getOrCreateAssociatedTokenAccount(
+      connection,
+      user,
+      usdc,
+      vaultPda,
+      true,
+      undefined,
+      undefined,
+      TOKEN_PROGRAM_ID
+    );
+
+    await getOrCreateAssociatedTokenAccount(
+      connection,
+      user,
+      depositContext.sharesMint,
+      vaultPda,
+      true,
+      undefined,
+      undefined,
+      TOKEN_PROGRAM_ID
+    );
+
+    const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
+      units: 600_000,
+    });
+
+    const tx = await program.methods
+      .kaminoVaultDeposit(vaultId, amount)
+      .accounts({
+        signer: user.publicKey,
+        inputToken: usdc,
+        vaultState: depositContext.vaultState,
+        tokenVault: depositContext.tokenVault,
+        baseVaultAuthority: depositContext.baseVaultAuthority,
+        sharesMint: depositContext.sharesMint,
+        lpToken: lpMint,
+        eventAuthority: depositContext.eventAuthority,
+        klendProgram: depositContext.klendProgram,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenProgram2022: TOKEN_2022_PROGRAM_ID,
+      })
+      .remainingAccounts(depositContext.remainingAccounts)
+      .preInstructions([computeBudgetIx])
+      .signers([user])
+      .rpc();
+
+    expect(tx).not.toBeNull();
+
+    const userInputBalanceAfter = await connection.getTokenAccountBalance(userUsdcAccount);
+    console.log("userInputBalanceAfter: ", userInputBalanceAfter.value.uiAmount);
   });
 });

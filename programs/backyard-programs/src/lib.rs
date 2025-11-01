@@ -10,6 +10,7 @@ pub use instructions::*;
 pub use state::*;
 
 declare_program!(lending);
+declare_program!(kamino_vault_converted);
 
 declare_id!("CUuCLr2DXer9TKTgW6bqJRxQEu4JEvfGV6DcTsoE2E96");
 
@@ -27,5 +28,13 @@ pub mod backyard_programs {
 
     pub fn withdraw(ctx: Context<Withdraw>, vault_id: Pubkey, amount: u64) -> Result<()> {
         withdraw::withdraw(ctx, vault_id, amount)
+    }
+
+    pub fn kamino_vault_deposit<'info>(
+        ctx: Context<'_, '_, '_, 'info, KaminoVaultDeposit<'info>>,
+        vault_id: Pubkey,
+        amount: u64,
+    ) -> Result<()> {
+        kamino_deposit::kamino_vault_deposit(ctx, vault_id, amount)
     }
 }

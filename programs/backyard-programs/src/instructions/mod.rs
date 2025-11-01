@@ -6,3 +6,6 @@ pub use deposit::*;
 
 pub mod withdraw;
 pub use withdraw::*;
+
+pub mod kamino_deposit;
+pub use kamino_deposit::*;

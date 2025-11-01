@@ -8,14 +8,17 @@ skip-lint = false
 [programs.localnet]
 backyard_programs = "CUuCLr2DXer9TKTgW6bqJRxQEu4JEvfGV6DcTsoE2E96"
 lending = "jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9"
+kamino_vault = "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd"
 
 [programs.devnet]
 backyard_programs = "CUuCLr2DXer9TKTgW6bqJRxQEu4JEvfGV6DcTsoE2E96"
 lending = "7tjE28izRUjzmxC1QNXnNwcc4N82CNYCexf3k8mw67s3"
+kamino_vault = "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd"
 
 [programs.mainnet]
 backyard_programs = "CUuCLr2DXer9TKTgW6bqJRxQEu4JEvfGV6DcTsoE2E96"
 lending = "jup3YeL8QhtSx1e253b2FDvsMNC87fDrgQZivbrndc9"
+kamino_vault = "KvauGMspG5k6rtzrqqn7WNn3oZdyKqLKwK2XWQ8FLjd"
 
 [registry]
 url = "https://api.apr.dev"

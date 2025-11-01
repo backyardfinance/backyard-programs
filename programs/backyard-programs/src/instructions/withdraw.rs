@@ -47,9 +47,8 @@ pub struct Withdraw<'info> {
 
     #[account(
         mut,
-        mint::authority = vault,
-        mint::freeze_authority = vault,
         mint::token_program = token_program_2022,
+        address = vault.internal_lp @ ErrorCode::WrongToken
     )]
     pub lp_token: Box<InterfaceAccount<'info, Mint>>,
 
@@ -79,7 +78,10 @@ pub struct Withdraw<'info> {
     pub lending_admin: Box<Account<'info, LendingAdmin>>,
     #[account(mut)]
     pub lending: Box<Account<'info, Lending>>,
-    #[account(mut)]
+    #[account(
+      mut,
+      address = vault.external_lp @ ErrorCode::WrongToken
+    )]
     pub f_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// CHECK: verify by jupiter

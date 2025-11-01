@@ -1,9 +1,8 @@
 use crate::{
     errors::ErrorCode,
-    lending::{
-        accounts::{Lending, LendingAdmin},
-        cpi::{accounts::Deposit as JupiterDeposit, deposit as jupiter_deposit},
-        program::Lending as LendingProgram,
+    kamino_vault_converted::{
+        cpi::{accounts::Deposit, deposit},
+        program::KaminoVault,
     },
     Vault,
 };
@@ -17,7 +16,7 @@ use anchor_spl::{
 
 #[derive(Accounts)]
 #[instruction(vault_id: Pubkey)]
-pub struct Deposit<'info> {
+pub struct KaminoVaultDeposit<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
@@ -45,7 +44,7 @@ pub struct Deposit<'info> {
 
     #[account(
       mut,
-      associated_token::mint = f_token_mint,
+      associated_token::mint = shares_mint,
       associated_token::authority = vault,
       associated_token::token_program = token_program,
     )]
@@ -74,44 +73,43 @@ pub struct Deposit<'info> {
     )]
     pub vault: Box<Account<'info, Vault>>,
 
-    pub lending_admin: Box<Account<'info, LendingAdmin>>,
+    /// CHECK: Kamino vault state
     #[account(mut)]
-    pub lending: Box<Account<'info, Lending>>,
-    #[account(
-        mut,
-        mint::token_program = token_program,
-        address = vault.external_lp @ ErrorCode::WrongToken
-    )]
-    pub f_token_mint: Box<InterfaceAccount<'info, Mint>>,
+    pub vault_state: AccountInfo<'info>,
 
-    /// CHECK: verify by jupiter
     #[account(mut)]
-    pub supply_token_reserves_liquidity: AccountInfo<'info>,
-    /// CHECK: verify by jupiter
-    #[account(mut)]
-    pub lending_supply_position_on_liquidity: AccountInfo<'info>,
-    /// CHECK: verify by jupiter
-    pub rate_model: AccountInfo<'info>,
-    /// CHECK: verify by jupiter
-    #[account(mut)]
-    pub jupiter_vault: AccountInfo<'info>,
-    /// CHECK: verify by jupiter
-    #[account(mut)]
-    pub liquidity: AccountInfo<'info>,
-    /// CHECK: verify by jupiter
-    #[account(mut)]
-    pub liquidity_program: AccountInfo<'info>,
-    /// CHECK: belongs to Jupiter Lend Rewards program (jup7TthsMgcR9Y3L277b8Eo9uboVSmu1utkuXHNUKar)
-    pub rewards_rate_model: AccountInfo<'info>,
-    pub lending_program: Program<'info, LendingProgram>,
+    pub token_vault: Box<InterfaceAccount<'info, TokenAccount>>,
+
+    /// CHECK: Kamino base vault authority
+    pub base_vault_authority: AccountInfo<'info>,
+
+    /// CHECK: Kamino event authority
+    pub event_authority: AccountInfo<'info>,
+
+    #[account(
+      mut,
+      mint::token_program = token_program,
+      address = vault.external_lp @ ErrorCode::WrongToken
+    )]
+    pub shares_mint: Box<InterfaceAccount<'info, Mint>>,
+
+    /// CHECK: Kamino lend program
+    pub klend_program: AccountInfo<'info>,
+    pub kamino_vault: Program<'info, KaminoVault>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub token_program: Interface<'info, TokenInterface>,
     pub token_program_2022: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
-pub fn deposit(ctx: Context<Deposit>, vault_id: Pubkey, amount: u64) -> Result<()> {
+pub fn kamino_vault_deposit<'info>(
+    ctx: Context<'_, '_, '_, 'info, KaminoVaultDeposit<'info>>,
+    vault_id: Pubkey,
+    amount: u64,
+) -> Result<()> {
     let vault_seeds: &[&[u8]] = &[b"vault", vault_id.as_ref(), &[ctx.accounts.vault.bump]];
+    let amount_lp_before = ctx.accounts.vault_lp_ata.amount;
+    let remaining_accounts = ctx.remaining_accounts.to_vec();
 
     require!(amount > 0, ErrorCode::InvalidAmount);
 
@@ -129,38 +127,34 @@ pub fn deposit(ctx: Context<Deposit>, vault_id: Pubkey, amount: u64) -> Result<(
         ctx.accounts.input_token.decimals,
     )?;
 
-    let lp_amount = jupiter_deposit(
+    deposit(
         CpiContext::new_with_signer(
-            ctx.accounts.lending_program.to_account_info(),
-            JupiterDeposit {
-                signer: ctx.accounts.vault.to_account_info(),
-                depositor_token_account: ctx.accounts.vault_input_ata.to_account_info(),
-                recipient_token_account: ctx.accounts.vault_lp_ata.to_account_info(),
-                mint: ctx.accounts.input_token.to_account_info(),
-                lending_admin: ctx.accounts.lending_admin.to_account_info(),
-                lending: ctx.accounts.lending.to_account_info(),
-                f_token_mint: ctx.accounts.f_token_mint.to_account_info(),
-                supply_token_reserves_liquidity: ctx
-                    .accounts
-                    .supply_token_reserves_liquidity
-                    .to_account_info(),
-                lending_supply_position_on_liquidity: ctx
-                    .accounts
-                    .lending_supply_position_on_liquidity
-                    .to_account_info(),
-                rate_model: ctx.accounts.rate_model.to_account_info(),
-                vault: ctx.accounts.jupiter_vault.to_account_info(),
-                liquidity: ctx.accounts.liquidity.to_account_info(),
-                liquidity_program: ctx.accounts.liquidity_program.to_account_info(),
-                rewards_rate_model: ctx.accounts.rewards_rate_model.to_account_info(),
+            ctx.accounts.kamino_vault.to_account_info(),
+            Deposit {
+                user: ctx.accounts.vault.to_account_info(),
+                vault_state: ctx.accounts.vault_state.to_account_info(),
+                token_vault: ctx.accounts.token_vault.to_account_info(),
+                token_mint: ctx.accounts.input_token.to_account_info(),
+                base_vault_authority: ctx.accounts.base_vault_authority.to_account_info(),
+                shares_mint: ctx.accounts.shares_mint.to_account_info(),
+                user_token_ata: ctx.accounts.vault_input_ata.to_account_info(),
+                user_shares_ata: ctx.accounts.vault_lp_ata.to_account_info(),
+                klend_program: ctx.accounts.klend_program.to_account_info(),
                 token_program: ctx.accounts.token_program.to_account_info(),
-                associated_token_program: ctx.accounts.associated_token_program.to_account_info(),
-                system_program: ctx.accounts.system_program.to_account_info(),
+                shares_token_program: ctx.accounts.token_program.to_account_info(),
+                event_authority: ctx.accounts.event_authority.to_account_info(),
+                program: ctx.accounts.kamino_vault.to_account_info(),
             },
             &[vault_seeds],
-        ),
+        )
+        .with_remaining_accounts(remaining_accounts),
         amount,
     )?;
+
+    let amount_lp_after = ctx.accounts.vault_lp_ata.amount;
+    let amount_to_mint = amount_lp_after
+        .checked_sub(amount_lp_before)
+        .ok_or(ErrorCode::MathOverflow)?;
 
     mint_to(
         CpiContext::new_with_signer(
@@ -172,7 +166,7 @@ pub fn deposit(ctx: Context<Deposit>, vault_id: Pubkey, amount: u64) -> Result<(
             },
             &[vault_seeds],
         ),
-        lp_amount.get(),
+        amount_to_mint,
     )?;
 
     Ok(())
