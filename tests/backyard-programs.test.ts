@@ -42,14 +42,18 @@ describe("backyard-programs", () => {
   const protocolOwner = Keypair.fromSecretKey(Uint8Array.from(secret));
   const program = anchor.workspace
     .BackyardPrograms as Program<BackyardPrograms>;
-  const vaultId = Keypair.generate().publicKey;
+  const jupiterVaultId = Keypair.generate().publicKey;
+  const kaminoVaultId = Keypair.generate().publicKey;
 
   const secretUser = JSON.parse(process.env.USER_PRIVATE_KEY!);
   const user = Keypair.fromSecretKey(Uint8Array.from(secretUser));
   const usdc = new anchor.web3.PublicKey("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
 
-  let vaultPda: PublicKey;
-  let lpMint: PublicKey;
+  let jupiterVaultPda: PublicKey;
+  let internalLpJupiter: PublicKey;
+
+  let kaminoVaultPda: PublicKey;
+  let internalLpKamino: PublicKey;
 
   beforeAll(async () => {
     await airdropIfRequired(
@@ -59,27 +63,23 @@ describe("backyard-programs", () => {
       1 * LAMPORTS_PER_SOL
     );
 
-    vaultPda = PublicKey.findProgramAddressSync(
-      [Buffer.from("vault"), vaultId.toBuffer()],
+    jupiterVaultPda = PublicKey.findProgramAddressSync(
+      [Buffer.from("vault"), jupiterVaultId.toBuffer()],
+      program.programId
+    )[0];
+
+    kaminoVaultPda = PublicKey.findProgramAddressSync(
+      [Buffer.from("vault"), kaminoVaultId.toBuffer()],
       program.programId
     )[0];
   });
 
-  it("creates a new vault PDA and lp token", async () => {
-    const tx = await program.methods
-      .createVault(vaultId)
-      .accounts({
-        token: usdc,
-        tokenProgram: TOKEN_PROGRAM_ID
-      })
-      .signers([protocolOwner])
-      .rpc();
-
-    expect(tx).not.toBeNull();
-
-    const vaultAccount = await program.account.vault.fetch(vaultPda);
-
-    expect(vaultAccount.vaultId.toBase58()).toEqual(vaultId.toBase58());
+  it("creates new lp token and vault PDA for Jupiter", async () => {
+    const depositContext = await getDepositContext({
+      asset: usdc,
+      signer: user.publicKey,
+      connection,
+    });
 
     const lpTokenKeypair = Keypair.generate();
 
@@ -106,8 +106,8 @@ describe("backyard-programs", () => {
     const initializeMintIx = createInitializeMint2Instruction(
       lpTokenKeypair.publicKey,
       6,
-      vaultPda,
-      vaultPda,
+      jupiterVaultPda,
+      jupiterVaultPda,
       TOKEN_2022_PROGRAM_ID
     );
 
@@ -122,10 +122,28 @@ describe("backyard-programs", () => {
       lpTokenKeypair,
     ]);
 
-    lpMint = lpTokenKeypair.publicKey;
+    internalLpJupiter = lpTokenKeypair.publicKey;
+
+    const tx = await program.methods
+      .createVault(jupiterVaultId)
+      .accounts({
+        token: usdc,
+        internalLp: internalLpJupiter,
+        externalLp: depositContext.fTokenMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenProgram2022: TOKEN_2022_PROGRAM_ID
+      })
+      .signers([protocolOwner])
+      .rpc();
+
+    expect(tx).not.toBeNull();
+
+    const vaultAccount = await program.account.vault.fetch(jupiterVaultPda);
+
+    expect(vaultAccount.vaultId.toBase58()).toEqual(jupiterVaultId.toBase58());
   });
 
-  it("deposit to vault", async () => {
+  it("deposit to Jupiter vault", async () => {
     await airdropIfRequired(
       connection,
       user.publicKey,
@@ -149,7 +167,7 @@ describe("backyard-programs", () => {
       connection,
       user,
       usdc,
-      vaultPda,
+      jupiterVaultPda,
       true,
       undefined,
       undefined,
@@ -159,7 +177,7 @@ describe("backyard-programs", () => {
       connection,
       user,
       depositContext.fTokenMint,
-      vaultPda,
+      jupiterVaultPda,
       true,
       undefined,
       undefined,
@@ -171,13 +189,13 @@ describe("backyard-programs", () => {
     });
 
     const tx = await program.methods
-      .deposit(vaultId, amount)
+      .deposit(jupiterVaultId, amount)
       .accounts({
         signer: user.publicKey,
         inputToken: usdc,
         tokenProgram: TOKEN_PROGRAM_ID,
         tokenProgram2022: TOKEN_2022_PROGRAM_ID,
-        lpToken: lpMint,
+        lpToken: internalLpJupiter,
         fTokenMint: depositContext.fTokenMint,
         jupiterVault: depositContext.vault,
         lending: depositContext.lending,
@@ -197,7 +215,7 @@ describe("backyard-programs", () => {
 
     const vaultLpAccount = getAssociatedTokenAddressSync(
       depositContext.fTokenMint,
-      vaultPda,
+      jupiterVaultPda,
       true,
       TOKEN_PROGRAM_ID
     );
@@ -205,7 +223,7 @@ describe("backyard-programs", () => {
     const vaultLpBalance = await connection.getTokenAccountBalance(vaultLpAccount);
 
     const userLpAccount = getAssociatedTokenAddressSync(
-      lpMint,
+      internalLpJupiter,
       user.publicKey,
       true,
       TOKEN_2022_PROGRAM_ID
@@ -216,9 +234,9 @@ describe("backyard-programs", () => {
     expect(vaultLpBalance.value.amount).toEqual(userLpBalance.value.amount);
   });
 
-  it("burn LP and withdraw tokens", async () => {
+  it("burn LP and withdraw tokens from Jupiter", async () => {
     const userLpAccount = getAssociatedTokenAddressSync(
-      lpMint,
+      internalLpJupiter,
       user.publicKey,
       false,
       TOKEN_2022_PROGRAM_ID
@@ -244,7 +262,7 @@ describe("backyard-programs", () => {
     });
     const vaultLpAccount = getAssociatedTokenAddressSync(
       withdrawContext.fTokenMint,
-      vaultPda,
+      jupiterVaultPda,
       true,
       TOKEN_PROGRAM_ID
     );
@@ -256,11 +274,11 @@ describe("backyard-programs", () => {
     });
 
     const txBurn = await program.methods
-      .withdraw(vaultId, amount)
+      .withdraw(jupiterVaultId, amount)
       .accounts({
         signer: user.publicKey,
         outputToken: usdc,
-        lpToken: lpMint,
+        lpToken: internalLpJupiter,
         tokenProgram: TOKEN_PROGRAM_ID,
         tokenProgram2022: TOKEN_2022_PROGRAM_ID,
         fTokenMint: withdrawContext.fTokenMint,
@@ -294,6 +312,75 @@ describe("backyard-programs", () => {
     expect(after).toBeGreaterThan(before);
   });
 
+  it("creates new lp token and vault PDA for Kamino", async () => {
+    const depositContext = await getKaminoDepositContext({
+      asset: usdc,
+      signer: user.publicKey,
+      connection,
+    });
+
+    const lpTokenKeypair = Keypair.generate();
+
+    const extensions = [ExtensionType.NonTransferable];
+    const mintLen = getMintLen(extensions);
+    const lamports = await connection.getMinimumBalanceForRentExemption(
+      mintLen
+    );
+
+    const createAccountIx = SystemProgram.createAccount({
+      fromPubkey: protocolOwner.publicKey,
+      newAccountPubkey: lpTokenKeypair.publicKey,
+      space: mintLen,
+      lamports,
+      programId: TOKEN_2022_PROGRAM_ID,
+    });
+
+    const initializeNonTransferableIx =
+      createInitializeNonTransferableMintInstruction(
+        lpTokenKeypair.publicKey,
+        TOKEN_2022_PROGRAM_ID
+      );
+
+    const initializeMintIx = createInitializeMint2Instruction(
+      lpTokenKeypair.publicKey,
+      6,
+      kaminoVaultPda,
+      kaminoVaultPda,
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    const setupTx = new Transaction().add(
+      createAccountIx,
+      initializeNonTransferableIx,
+      initializeMintIx
+    );
+
+    await sendAndConfirmTransaction(connection, setupTx, [
+      protocolOwner,
+      lpTokenKeypair,
+    ]);
+
+    internalLpKamino = lpTokenKeypair.publicKey;
+
+    const tx = await program.methods
+      .createVault(kaminoVaultId)
+      .accounts({
+        token: usdc,
+        internalLp: internalLpKamino,
+        externalLp: depositContext.sharesMint,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenProgram2022: TOKEN_2022_PROGRAM_ID
+      })
+      .signers([protocolOwner])
+      .rpc();
+
+    expect(tx).not.toBeNull();
+
+    const vaultAccount = await program.account.vault.fetch(kaminoVaultPda);
+
+    expect(vaultAccount.vaultId.toBase58()).toEqual(kaminoVaultId.toBase58());
+  });
+
   it("deposit USDC to Kamino vault", async () => {
 
     const amount = new anchor.BN(100000000);
@@ -318,7 +405,7 @@ describe("backyard-programs", () => {
       connection,
       user,
       usdc,
-      vaultPda,
+      kaminoVaultPda,
       true,
       undefined,
       undefined,
@@ -329,7 +416,7 @@ describe("backyard-programs", () => {
       connection,
       user,
       depositContext.sharesMint,
-      vaultPda,
+      kaminoVaultPda,
       true,
       undefined,
       undefined,
@@ -341,7 +428,7 @@ describe("backyard-programs", () => {
     });
 
     const tx = await program.methods
-      .kaminoVaultDeposit(vaultId, amount)
+      .kaminoVaultDeposit(kaminoVaultId, amount)
       .accounts({
         signer: user.publicKey,
         inputToken: usdc,
@@ -349,7 +436,7 @@ describe("backyard-programs", () => {
         tokenVault: depositContext.tokenVault,
         baseVaultAuthority: depositContext.baseVaultAuthority,
         sharesMint: depositContext.sharesMint,
-        lpToken: lpMint,
+        lpToken: internalLpKamino,
         eventAuthority: depositContext.eventAuthority,
         klendProgram: depositContext.klendProgram,
         tokenProgram: TOKEN_PROGRAM_ID,
