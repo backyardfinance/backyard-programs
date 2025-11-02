@@ -9,3 +9,6 @@ pub use withdraw::*;
 
 pub mod kamino_deposit;
 pub use kamino_deposit::*;
+
+pub mod kamino_withdraw;
+pub use kamino_withdraw::*;

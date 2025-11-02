@@ -27,7 +27,6 @@ import { utils } from "@coral-xyz/anchor";
 import {
   getDepositContext,
   getWithdrawContext,
-  getLendingTokens,
 } from "@jup-ag/lend/earn";
 import { describe, it, expect, beforeAll } from 'vitest';
 import { getKaminoDepositContext } from "./helpers/kamino-helpers";
@@ -152,10 +151,6 @@ describe("backyard-programs", () => {
     );
 
     const amount = new anchor.BN(100_000_000);
-
-    const allTokens = await getLendingTokens({ connection });
-
-    console.log({ allTokens });
 
     const depositContext = await getDepositContext({
       asset: usdc,
@@ -451,5 +446,24 @@ describe("backyard-programs", () => {
 
     const userInputBalanceAfter = await connection.getTokenAccountBalance(userUsdcAccount);
     console.log("userInputBalanceAfter: ", userInputBalanceAfter.value.uiAmount);
+
+    const vaultLpAccount = getAssociatedTokenAddressSync(
+      depositContext.sharesMint,
+      kaminoVaultPda,
+      true,
+      TOKEN_PROGRAM_ID
+    );
+
+    const vaultLpBalance = await connection.getTokenAccountBalance(vaultLpAccount);
+
+    const userLpAccount = getAssociatedTokenAddressSync(
+      internalLpKamino,
+      user.publicKey,
+      true,
+      TOKEN_2022_PROGRAM_ID
+    );
+    const userLpBalance = await connection.getTokenAccountBalance(userLpAccount);
+    expect(Number(userLpBalance.value.amount)).toBeGreaterThan(0);
+    expect(vaultLpBalance.value.amount).toEqual(userLpBalance.value.amount);
   });
 });

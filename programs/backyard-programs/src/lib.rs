@@ -37,4 +37,12 @@ pub mod backyard_programs {
     ) -> Result<()> {
         kamino_deposit::kamino_vault_deposit(ctx, vault_id, amount)
     }
+
+    pub fn kamino_vault_withdraw<'info>(
+        ctx: Context<'_, '_, '_, 'info, KaminoVaultWithdraw<'info>>,
+        vault_id: Pubkey,
+        amount: u64,
+    ) -> Result<()> {
+        kamino_withdraw::kamino_vault_withdraw(ctx, vault_id, amount)
+    }
 }

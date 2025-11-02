@@ -151,6 +151,7 @@ pub fn kamino_vault_deposit<'info>(
         amount,
     )?;
 
+    ctx.accounts.vault_lp_ata.reload()?;
     let amount_lp_after = ctx.accounts.vault_lp_ata.amount;
     let amount_to_mint = amount_lp_after
         .checked_sub(amount_lp_before)
