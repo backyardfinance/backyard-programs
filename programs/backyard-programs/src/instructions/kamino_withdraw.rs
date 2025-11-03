@@ -25,6 +25,7 @@ pub struct KaminoVaultWithdraw<'info> {
     pub signer: Signer<'info>,
 
     #[account(
+        mut,
         mint::token_program = token_program,
         address = vault.token @ ErrorCode::WrongToken
     )]
@@ -115,6 +116,7 @@ pub struct KaminoVaultWithdraw<'info> {
     #[account(mut)]
     pub reserve_collateral_mint: AccountInfo<'info>,
     /// CHECK: Kamino ctoken vault
+    #[account(mut)]
     pub ctoken_vault: Box<InterfaceAccount<'info, TokenAccount>>,
 
     /// CHECK: Kamino lend program
@@ -211,7 +213,7 @@ pub fn kamino_vault_withdraw<'info>(
                 from: ctx.accounts.vault_output_ata.to_account_info(),
                 mint: ctx.accounts.output_token.to_account_info(),
                 to: ctx.accounts.signer_output_ata.to_account_info(),
-                authority: ctx.accounts.signer.to_account_info(),
+                authority: ctx.accounts.vault.to_account_info(),
             },
             &[vault_seeds],
         ),

@@ -7,7 +7,10 @@ import {
   PublicKey,
   sendAndConfirmTransaction,
   SystemProgram,
+  SYSVAR_INSTRUCTIONS_PUBKEY,
   Transaction,
+  TransactionMessage,
+  VersionedTransaction,
 } from "@solana/web3.js";
 import {
   createInitializeMint2Instruction,
@@ -29,7 +32,7 @@ import {
   getWithdrawContext,
 } from "@jup-ag/lend/earn";
 import { describe, it, expect, beforeAll } from 'vitest';
-import { getKaminoDepositContext } from "./helpers/kamino-helpers";
+import { getKaminoDepositContext, getKaminoWithdrawContext } from "./helpers/kamino-helpers";
 
 dotenv.config();
 
@@ -465,5 +468,108 @@ describe("backyard-programs", () => {
     const userLpBalance = await connection.getTokenAccountBalance(userLpAccount);
     expect(Number(userLpBalance.value.amount)).toBeGreaterThan(0);
     expect(vaultLpBalance.value.amount).toEqual(userLpBalance.value.amount);
+  });
+
+  it("withdraw USDC from Kamino vault", async () => {
+    const withdrawContext = await getKaminoWithdrawContext({
+      connection,
+      asset: usdc,
+      signer: user.publicKey,
+    });
+
+    const userLpAccount = getAssociatedTokenAddressSync(
+      internalLpKamino,
+      user.publicKey,
+      true,
+      TOKEN_2022_PROGRAM_ID
+    );
+
+    const userLpBalanceBefore = await connection.getTokenAccountBalance(userLpAccount);
+    console.log("User LP balance before:", userLpBalanceBefore.value.uiAmount);
+
+    const lpAmountToWithdraw = new anchor.BN(50_000_000);
+
+    const userUsdcAccount = getAssociatedTokenAddressSync(
+      usdc,
+      user.publicKey,
+      false,
+      TOKEN_PROGRAM_ID
+    );
+
+    const userUsdcBalanceBefore = await connection.getTokenAccountBalance(userUsdcAccount);
+    console.log("User USDC balance before:", userUsdcBalanceBefore.value.uiAmount);
+
+    await getOrCreateAssociatedTokenAccount(
+      connection,
+      user,
+      usdc,
+      kaminoVaultPda,
+      true,
+      undefined,
+      undefined,
+      TOKEN_PROGRAM_ID
+    );
+
+    await getOrCreateAssociatedTokenAccount(
+      connection,
+      user,
+      withdrawContext.sharesMint,
+      kaminoVaultPda,
+      true,
+      undefined,
+      undefined,
+      TOKEN_PROGRAM_ID
+    );
+
+    const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
+      units: 800_000,
+    });
+
+    const instruction = await program.methods
+      .kaminoVaultWithdraw(kaminoVaultId, lpAmountToWithdraw)
+      .accounts({
+        signer: user.publicKey,
+        outputToken: usdc,
+        lpToken: internalLpKamino,
+        vaultState: withdrawContext.vaultState,
+        reserve: withdrawContext.reserve,
+        tokenVault: withdrawContext.tokenVault,
+        baseVaultAuthority: withdrawContext.baseVaultAuthority,
+        eventAuthority: withdrawContext.eventAuthority,
+        sharesMint: withdrawContext.sharesMint,
+        lendingMarket: withdrawContext.lendingMarket,
+        lendingMarketAuthority: withdrawContext.lendingMarketAuthority,
+        reserveLiquiditySupply: withdrawContext.reserveLiquiditySupply,
+        reserveCollateralMint: withdrawContext.reserveCollateralMint,
+        ctokenVault: withdrawContext.ctokenVault,
+        klendProgram: withdrawContext.klendProgram,
+        tokenProgram: TOKEN_PROGRAM_ID,
+        tokenProgram2022: TOKEN_2022_PROGRAM_ID,
+      })
+      .remainingAccounts(withdrawContext.remainingAccounts)
+      .instruction();
+
+    const messageV0 = new TransactionMessage({
+      payerKey: user.publicKey,
+      recentBlockhash: (await connection.getLatestBlockhash()).blockhash,
+      instructions: [computeBudgetIx, instruction],
+    }).compileToV0Message();
+
+    const transaction = new VersionedTransaction(messageV0);
+    transaction.sign([user]);
+
+    const tx = await connection.sendTransaction(transaction);
+
+    expect(tx).not.toBeNull();
+
+    const userLpBalanceAfter = await connection.getTokenAccountBalance(userLpAccount);
+    console.log("User LP balance after:", userLpBalanceAfter.value.uiAmount);
+
+    const userUsdcBalanceAfter = await connection.getTokenAccountBalance(userUsdcAccount);
+    console.log("User USDC balance after:", userUsdcBalanceAfter.value.uiAmount);
+
+    expect(Number(userUsdcBalanceAfter.value.amount)).toBeGreaterThan(
+      Number(userUsdcBalanceBefore.value.amount)
+    );
   });
 });
