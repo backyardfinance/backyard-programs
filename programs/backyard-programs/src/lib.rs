@@ -22,27 +22,35 @@ pub mod backyard_programs {
         create_vault::create_vault(ctx, vault_id)
     }
 
-    pub fn deposit(ctx: Context<Deposit>, vault_id: Pubkey, amount: u64) -> Result<()> {
-        deposit::deposit(ctx, vault_id, amount)
+    pub fn jupiter_deposit(
+        ctx: Context<JupiterDeposit>,
+        vault_id: Pubkey,
+        input_amount: u64,
+    ) -> Result<()> {
+        jupiter_deposit::jupiter_deposit(ctx, vault_id, input_amount)
     }
 
-    pub fn withdraw(ctx: Context<Withdraw>, vault_id: Pubkey, amount: u64) -> Result<()> {
-        withdraw::withdraw(ctx, vault_id, amount)
+    pub fn jupiter_withdraw(
+        ctx: Context<JupiterWithdraw>,
+        vault_id: Pubkey,
+        output_amount: u64,
+    ) -> Result<()> {
+        jupiter_withdraw::jupiter_withdraw(ctx, vault_id, output_amount)
     }
 
     pub fn kamino_vault_deposit<'info>(
         ctx: Context<'_, '_, '_, 'info, KaminoVaultDeposit<'info>>,
         vault_id: Pubkey,
-        amount: u64,
+        input_amount: u64,
     ) -> Result<()> {
-        kamino_deposit::kamino_vault_deposit(ctx, vault_id, amount)
+        kamino_deposit::kamino_vault_deposit(ctx, vault_id, input_amount)
     }
 
     pub fn kamino_vault_withdraw<'info>(
         ctx: Context<'_, '_, '_, 'info, KaminoVaultWithdraw<'info>>,
         vault_id: Pubkey,
-        amount: u64,
+        lp_amount: u64,
     ) -> Result<()> {
-        kamino_withdraw::kamino_vault_withdraw(ctx, vault_id, amount)
+        kamino_withdraw::kamino_vault_withdraw(ctx, vault_id, lp_amount)
     }
 }

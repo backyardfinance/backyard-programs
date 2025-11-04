@@ -2,7 +2,7 @@ use crate::{
     errors::ErrorCode,
     lending::{
         accounts::{Lending, LendingAdmin},
-        cpi::{accounts::Withdraw as JupiterWithdraw, withdraw as jupiter_withdraw},
+        cpi::{accounts::Withdraw, withdraw},
         program::Lending as LendingProgram,
     },
     Vault,
@@ -18,7 +18,7 @@ use anchor_spl::{
 
 #[derive(Accounts)]
 #[instruction(vault_id: Pubkey)]
-pub struct Withdraw<'info> {
+pub struct JupiterWithdraw<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
@@ -113,15 +113,19 @@ pub struct Withdraw<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn withdraw(ctx: Context<Withdraw>, vault_id: Pubkey, amount: u64) -> Result<()> {
+pub fn jupiter_withdraw(
+    ctx: Context<JupiterWithdraw>,
+    vault_id: Pubkey,
+    output_amount: u64,
+) -> Result<()> {
     let vault_seeds: &[&[u8]] = &[b"vault", vault_id.as_ref(), &[ctx.accounts.vault.bump]];
 
-    require!(amount > 0, ErrorCode::InvalidAmount);
+    require!(output_amount > 0, ErrorCode::InvalidAmount);
 
-    let lp_burned = jupiter_withdraw(
+    let lp_burned = withdraw(
         CpiContext::new_with_signer(
             ctx.accounts.lending_program.to_account_info(),
-            JupiterWithdraw {
+            Withdraw {
                 signer: ctx.accounts.vault.to_account_info(),
                 owner_token_account: ctx.accounts.vault_lp_ata.to_account_info(),
                 recipient_token_account: ctx.accounts.vault_output_ata.to_account_info(),
@@ -149,7 +153,7 @@ pub fn withdraw(ctx: Context<Withdraw>, vault_id: Pubkey, amount: u64) -> Result
             },
             &[vault_seeds],
         ),
-        amount,
+        output_amount,
     )?;
 
     burn_checked(
@@ -176,7 +180,7 @@ pub fn withdraw(ctx: Context<Withdraw>, vault_id: Pubkey, amount: u64) -> Result
             },
             &[vault_seeds],
         ),
-        amount,
+        output_amount,
         ctx.accounts.output_token.decimals,
     )?;
 

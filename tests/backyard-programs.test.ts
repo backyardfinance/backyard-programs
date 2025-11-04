@@ -187,7 +187,7 @@ describe("backyard-programs", () => {
     });
 
     const tx = await program.methods
-      .deposit(jupiterVaultId, amount)
+      .jupiterDeposit(jupiterVaultId, amount)
       .accounts({
         signer: user.publicKey,
         inputToken: usdc,
@@ -272,7 +272,7 @@ describe("backyard-programs", () => {
     });
 
     const txBurn = await program.methods
-      .withdraw(jupiterVaultId, amount)
+      .jupiterWithdraw(jupiterVaultId, amount)
       .accounts({
         signer: user.publicKey,
         outputToken: usdc,

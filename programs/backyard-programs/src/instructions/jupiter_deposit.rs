@@ -2,7 +2,7 @@ use crate::{
     errors::ErrorCode,
     lending::{
         accounts::{Lending, LendingAdmin},
-        cpi::{accounts::Deposit as JupiterDeposit, deposit as jupiter_deposit},
+        cpi::{accounts::Deposit, deposit},
         program::Lending as LendingProgram,
     },
     Vault,
@@ -17,7 +17,7 @@ use anchor_spl::{
 
 #[derive(Accounts)]
 #[instruction(vault_id: Pubkey)]
-pub struct Deposit<'info> {
+pub struct JupiterDeposit<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
@@ -110,10 +110,14 @@ pub struct Deposit<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn deposit(ctx: Context<Deposit>, vault_id: Pubkey, amount: u64) -> Result<()> {
+pub fn jupiter_deposit(
+    ctx: Context<JupiterDeposit>,
+    vault_id: Pubkey,
+    input_amount: u64,
+) -> Result<()> {
     let vault_seeds: &[&[u8]] = &[b"vault", vault_id.as_ref(), &[ctx.accounts.vault.bump]];
 
-    require!(amount > 0, ErrorCode::InvalidAmount);
+    require!(input_amount > 0, ErrorCode::InvalidAmount);
 
     transfer_checked(
         CpiContext::new(
@@ -125,14 +129,14 @@ pub fn deposit(ctx: Context<Deposit>, vault_id: Pubkey, amount: u64) -> Result<(
                 authority: ctx.accounts.signer.to_account_info(),
             },
         ),
-        amount,
+        input_amount,
         ctx.accounts.input_token.decimals,
     )?;
 
-    let lp_amount = jupiter_deposit(
+    let lp_amount = deposit(
         CpiContext::new_with_signer(
             ctx.accounts.lending_program.to_account_info(),
-            JupiterDeposit {
+            Deposit {
                 signer: ctx.accounts.vault.to_account_info(),
                 depositor_token_account: ctx.accounts.vault_input_ata.to_account_info(),
                 recipient_token_account: ctx.accounts.vault_lp_ata.to_account_info(),
@@ -159,7 +163,7 @@ pub fn deposit(ctx: Context<Deposit>, vault_id: Pubkey, amount: u64) -> Result<(
             },
             &[vault_seeds],
         ),
-        amount,
+        input_amount,
     )?;
 
     mint_to(

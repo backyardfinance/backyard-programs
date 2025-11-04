@@ -105,13 +105,13 @@ pub struct KaminoVaultDeposit<'info> {
 pub fn kamino_vault_deposit<'info>(
     ctx: Context<'_, '_, '_, 'info, KaminoVaultDeposit<'info>>,
     vault_id: Pubkey,
-    amount: u64,
+    input_amount: u64,
 ) -> Result<()> {
     let vault_seeds: &[&[u8]] = &[b"vault", vault_id.as_ref(), &[ctx.accounts.vault.bump]];
     let amount_lp_before = ctx.accounts.vault_lp_ata.amount;
     let remaining_accounts = ctx.remaining_accounts.to_vec();
 
-    require!(amount > 0, ErrorCode::InvalidAmount);
+    require!(input_amount > 0, ErrorCode::InvalidAmount);
 
     transfer_checked(
         CpiContext::new(
@@ -123,7 +123,7 @@ pub fn kamino_vault_deposit<'info>(
                 authority: ctx.accounts.signer.to_account_info(),
             },
         ),
-        amount,
+        input_amount,
         ctx.accounts.input_token.decimals,
     )?;
 
@@ -148,7 +148,7 @@ pub fn kamino_vault_deposit<'info>(
             &[vault_seeds],
         )
         .with_remaining_accounts(remaining_accounts),
-        amount,
+        input_amount,
     )?;
 
     ctx.accounts.vault_lp_ata.reload()?;
