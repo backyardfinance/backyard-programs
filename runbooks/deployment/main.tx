@@ -7,6 +7,18 @@ addon "svm" {
     network_id = input.network_id
 }
 
+action "setup" "svm::setup_surfnet" {
+    set_account {
+        public_key = "3FATY429DhTMtt2rRZssSjmxDeqU4v9pXM9bYmbom8e5"
+        lamports = 99999999999
+    }
+    set_token_account {
+        public_key = "DLT9L59MBwfv9R6dvEYf3D2ASZ7RbqAn6cpnwJZbXTgS"
+        token = "usdc"
+        amount = 1000000000
+    }
+}
+
 action "deploy_backyard_programs" "svm::deploy_program" {
     description = "Deploy backyard_programs program"
     program = svm::get_program_from_anchor_project("backyard_programs") 
@@ -15,5 +27,5 @@ action "deploy_backyard_programs" "svm::deploy_program" {
     // Optional: if you want to deploy the program via a cheatcode when targeting a Surfnet, set `instant_surfnet_deployment = true`
     // Deploying via a cheatcode will write the program data directly to the program account, rather than sending transactions.
     // This will make deployments instantaneous, but is deviating from how the deployments will take place on devnet/mainnet.
-    // instant_surfnet_deployment = true
+    instant_surfnet_deployment = true
 }
