@@ -14,6 +14,12 @@ pub struct CreateVault<'info> {
     #[account(mint::token_program = token_program)]
     pub token: Box<InterfaceAccount<'info, Mint>>,
 
+    #[account(mint::token_program = token_program_2022)]
+    pub internal_lp: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(mint::token_program = token_program)]
+    pub external_lp: Box<InterfaceAccount<'info, Mint>>,
+
     #[account(
         init,
         payer = master,
@@ -24,6 +30,7 @@ pub struct CreateVault<'info> {
     pub vault: Box<Account<'info, Vault>>,
 
     pub token_program: Interface<'info, TokenInterface>,
+    pub token_program_2022: Interface<'info, TokenInterface>,
     pub system_program: Program<'info, System>,
 }
 
@@ -32,6 +39,8 @@ pub fn create_vault(ctx: Context<CreateVault>, vault_id: Pubkey) -> Result<()> {
 
     vault.vault_id = vault_id;
     vault.token = ctx.accounts.token.key();
+    vault.external_lp = ctx.accounts.external_lp.key();
+    vault.internal_lp = ctx.accounts.internal_lp.key();
     vault.bump = ctx.bumps.vault;
     Ok(())
 }

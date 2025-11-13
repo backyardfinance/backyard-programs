@@ -2,7 +2,7 @@ use crate::{
     errors::ErrorCode,
     lending::{
         accounts::{Lending, LendingAdmin},
-        cpi::{accounts::Withdraw as JupiterWithdraw, withdraw as jupiter_withdraw},
+        cpi::{accounts::Deposit, deposit},
         program::Lending as LendingProgram,
     },
     Vault,
@@ -11,14 +11,13 @@ use anchor_lang::prelude::*;
 use anchor_spl::{
     associated_token::AssociatedToken,
     token_interface::{
-        burn_checked, transfer_checked, BurnChecked, Mint, TokenAccount, TokenInterface,
-        TransferChecked,
+        mint_to, transfer_checked, Mint, MintTo, TokenAccount, TokenInterface, TransferChecked,
     },
 };
 
 #[derive(Accounts)]
 #[instruction(vault_id: Pubkey)]
-pub struct Withdraw<'info> {
+pub struct JupiterDeposit<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
@@ -26,46 +25,45 @@ pub struct Withdraw<'info> {
         mint::token_program = token_program,
         address = vault.token @ ErrorCode::WrongToken
     )]
-    pub output_token: Box<InterfaceAccount<'info, Mint>>,
+    pub input_token: Box<InterfaceAccount<'info, Mint>>,
 
     #[account(
-        init_if_needed,
-        payer = signer,
-        associated_token::mint = output_token,
+        mut,
+        associated_token::mint = input_token,
         associated_token::authority = signer,
         associated_token::token_program = token_program,
     )]
-    pub signer_output_ata: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub signer_input_ata: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
-        mut,
-        associated_token::mint = output_token,
-        associated_token::authority = vault,
-        associated_token::token_program = token_program,
+      mut,
+      associated_token::mint = input_token,
+      associated_token::authority = vault,
+      associated_token::token_program = token_program,
     )]
-    pub vault_output_ata: Box<InterfaceAccount<'info, TokenAccount>>,
+    pub vault_input_ata: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
-        mut,
-        mint::authority = vault,
-        mint::freeze_authority = vault,
-        mint::token_program = token_program_2022,
-    )]
-    pub lp_token: Box<InterfaceAccount<'info, Mint>>,
-
-    #[account(
-        mut,
-        associated_token::mint = f_token_mint,
-        associated_token::authority = vault,
-        associated_token::token_program = token_program,
+      mut,
+      associated_token::mint = f_token_mint,
+      associated_token::authority = vault,
+      associated_token::token_program = token_program,
     )]
     pub vault_lp_ata: Box<InterfaceAccount<'info, TokenAccount>>,
 
     #[account(
-        mut,
-        associated_token::mint = lp_token,
-        associated_token::authority = signer,
-        associated_token::token_program = token_program_2022,
+      mut,
+      mint::token_program = token_program_2022,
+      address = vault.internal_lp @ ErrorCode::WrongToken
+    )]
+    pub lp_token: Box<InterfaceAccount<'info, Mint>>,
+
+    #[account(
+      init_if_needed,
+      payer = signer,
+      associated_token::mint = lp_token,
+      associated_token::authority = signer,
+      associated_token::token_program = token_program_2022,
     )]
     pub signer_lp_ata: Box<InterfaceAccount<'info, TokenAccount>>,
 
@@ -79,7 +77,11 @@ pub struct Withdraw<'info> {
     pub lending_admin: Box<Account<'info, LendingAdmin>>,
     #[account(mut)]
     pub lending: Box<Account<'info, Lending>>,
-    #[account(mut)]
+    #[account(
+        mut,
+        mint::token_program = token_program,
+        address = vault.external_lp @ ErrorCode::WrongToken
+    )]
     pub f_token_mint: Box<InterfaceAccount<'info, Mint>>,
 
     /// CHECK: verify by jupiter
@@ -95,9 +97,6 @@ pub struct Withdraw<'info> {
     pub jupiter_vault: AccountInfo<'info>,
     /// CHECK: verify by jupiter
     #[account(mut)]
-    pub claim_account: AccountInfo<'info>,
-    /// CHECK: verify by jupiter
-    #[account(mut)]
     pub liquidity: AccountInfo<'info>,
     /// CHECK: verify by jupiter
     #[account(mut)]
@@ -111,21 +110,39 @@ pub struct Withdraw<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn withdraw(ctx: Context<Withdraw>, vault_id: Pubkey, amount: u64) -> Result<()> {
+pub fn jupiter_deposit(
+    ctx: Context<JupiterDeposit>,
+    vault_id: Pubkey,
+    input_amount: u64,
+) -> Result<()> {
     let vault_seeds: &[&[u8]] = &[b"vault", vault_id.as_ref(), &[ctx.accounts.vault.bump]];
 
-    require!(amount > 0, ErrorCode::InvalidAmount);
+    require!(input_amount > 0, ErrorCode::InvalidAmount);
 
-    let lp_burned = jupiter_withdraw(
+    transfer_checked(
+        CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            TransferChecked {
+                from: ctx.accounts.signer_input_ata.to_account_info(),
+                mint: ctx.accounts.input_token.to_account_info(),
+                to: ctx.accounts.vault_input_ata.to_account_info(),
+                authority: ctx.accounts.signer.to_account_info(),
+            },
+        ),
+        input_amount,
+        ctx.accounts.input_token.decimals,
+    )?;
+
+    let lp_amount = deposit(
         CpiContext::new_with_signer(
             ctx.accounts.lending_program.to_account_info(),
-            JupiterWithdraw {
+            Deposit {
                 signer: ctx.accounts.vault.to_account_info(),
-                owner_token_account: ctx.accounts.vault_lp_ata.to_account_info(),
-                recipient_token_account: ctx.accounts.vault_output_ata.to_account_info(),
+                depositor_token_account: ctx.accounts.vault_input_ata.to_account_info(),
+                recipient_token_account: ctx.accounts.vault_lp_ata.to_account_info(),
+                mint: ctx.accounts.input_token.to_account_info(),
                 lending_admin: ctx.accounts.lending_admin.to_account_info(),
                 lending: ctx.accounts.lending.to_account_info(),
-                mint: ctx.accounts.output_token.to_account_info(),
                 f_token_mint: ctx.accounts.f_token_mint.to_account_info(),
                 supply_token_reserves_liquidity: ctx
                     .accounts
@@ -137,7 +154,6 @@ pub fn withdraw(ctx: Context<Withdraw>, vault_id: Pubkey, amount: u64) -> Result
                     .to_account_info(),
                 rate_model: ctx.accounts.rate_model.to_account_info(),
                 vault: ctx.accounts.jupiter_vault.to_account_info(),
-                claim_account: ctx.accounts.claim_account.to_account_info(), //???
                 liquidity: ctx.accounts.liquidity.to_account_info(),
                 liquidity_program: ctx.accounts.liquidity_program.to_account_info(),
                 rewards_rate_model: ctx.accounts.rewards_rate_model.to_account_info(),
@@ -147,35 +163,20 @@ pub fn withdraw(ctx: Context<Withdraw>, vault_id: Pubkey, amount: u64) -> Result
             },
             &[vault_seeds],
         ),
-        amount,
+        input_amount,
     )?;
 
-    burn_checked(
-        CpiContext::new(
-            ctx.accounts.token_program_2022.to_account_info(),
-            BurnChecked {
-                mint: ctx.accounts.lp_token.to_account_info(),
-                from: ctx.accounts.signer_lp_ata.to_account_info(),
-                authority: ctx.accounts.signer.to_account_info(),
-            },
-        ),
-        lp_burned.get(),
-        ctx.accounts.lp_token.decimals,
-    )?;
-
-    transfer_checked(
+    mint_to(
         CpiContext::new_with_signer(
-            ctx.accounts.token_program.to_account_info(),
-            TransferChecked {
-                from: ctx.accounts.vault_output_ata.to_account_info(),
-                mint: ctx.accounts.output_token.to_account_info(),
-                to: ctx.accounts.signer_output_ata.to_account_info(),
+            ctx.accounts.token_program_2022.to_account_info(),
+            MintTo {
+                mint: ctx.accounts.lp_token.to_account_info(),
+                to: ctx.accounts.signer_lp_ata.to_account_info(),
                 authority: ctx.accounts.vault.to_account_info(),
             },
             &[vault_seeds],
         ),
-        amount,
-        ctx.accounts.output_token.decimals,
+        lp_amount.get(),
     )?;
 
     Ok(())

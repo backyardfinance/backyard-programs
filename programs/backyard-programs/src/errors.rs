@@ -12,4 +12,6 @@ pub enum ErrorCode {
     InvalidAmount,
     #[msg("Wrong token")]
     WrongToken,
+    #[msg("Math Overflow")]
+    MathOverflow,
 }
